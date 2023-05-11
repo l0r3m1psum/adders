@@ -523,102 +523,6 @@ endmodule
  * Serial Adder                                                               *
  ******************************************************************************/
 
-/* The amazing Ben Eater
- * https://www.youtube.com/watch?v=KM0DdEaY5sY the most basic latch is a OR
- * https://www.youtube.com/watch?v=F1OC5e7Tn_o edge triggering in real life is done with capacitors
- */
-
-module or_latch
-	(input in,
-	 output out);
-
-	or #1 gate(out, out, in);
-endmodule
-
-module or_latch_test_bench;
-	reg in;
-	wire out;
-
-	or_latch latch(in, out);
-
-	initial begin
-		$monitor($time,, "in=%d, out=%d", in, out);
-		#1
-		in = 0;
-		#10
-		in = 1;
-		#10
-		$display("no more changes");
-		in = 0;
-		#10
-		$finish();
-	end
-endmodule
-
-/* This is jus a test JK flip flop, it is functional but it is hard to control
- * because of the "raw/nacked" clock (it is not edge triggered). Look at the
- * test bench below for a practical example. So this is not usefull in practice
- * but it has pedagogical value.
- */
-module JK_flip_flop
-	(input clock, reset,
-	 input J /* set */, K /* reset */,
-	 output Q, Q_bar);
-
-	wire Q_input, Q_bar_input;
-
-	nand #1
-		(Q_input,     J, clock, Q_bar),
-		(Q_bar_input, K, clock, Q),
-		(Q,     Q_input,     Q_bar),
-		(Q_bar, Q_bar_input, Q,   reset);
-endmodule
-
-module JK_flip_flop_test_bench;
-	reg clock, J, K, reset;
-	wire Q, Qn;
-
-	JK_flip_flop ff(clock, reset, J, K, Q, Qn);
-
-	always
-		#5 clock = ~clock;
-
-	initial begin
-		$monitor($time,, "J=%d, K=%d, Q=%d, Qn=%d", J, K, Q, Qn);
-		/* By doing the weird reset dance that we have seen here
-		 * http://barrywatson.se/dd/dd_jk_flip_flop_master_slave.html
-		 * the flip flop seems to work.
-		 */
-		clock = 1;
-		J = 0; K = 0;
-		reset = 1;
-		#10
-		reset = 0;
-		#10
-		reset = 1;
-		#10
-		$display("set to 0");
-		J = 0; K = 1;
-		#10
-		$display("hold");
-		J = 0; K = 0;
-		#10
-		$display("set to 1");
-		J = 1; K = 0;
-		#10
-		$display("set to 0");
-		J = 0; K = 1;
-		#10
-		$display("flip");
-		J = 1; K = 1;
-		#4 // If we don't get this timing right the flip flip goes bananas.
-		$display("hold");
-		J = 0; K = 0;
-		#10
-		$finish();
-	end
-endmodule
-
 // NOTE: it would be cool to make this module with individual flip flops
 module shift_register
 	#(parameter N=8)
@@ -706,7 +610,6 @@ module serial_adder
 		.out(S)
 	);
 	serial_adder_block adder(clock, reset, sel_A, sel_B, sum);
-
 endmodule
 
 /******************************************************************************
