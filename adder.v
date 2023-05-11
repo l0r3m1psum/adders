@@ -340,7 +340,7 @@ endmodule
 
 // https://verilogcodes.blogspot.com/2020/12/quaternary-signed-digit-qsd-based-fast.html
 
-module QSD_internal_carry_sum_generator
+module QSD_internal_carry_sum_generator_register_transfer
 	(input [2:0] a, b,
 	 output [2:0] s,
 	 output [1:0] c);
@@ -354,17 +354,64 @@ module QSD_internal_carry_sum_generator
 		| (a[0] &  b[0] & ~a[1] & ~b[1] & (a[2] | b[2]))
 		| (a[0] &  b[0] &  a[1] &  b[1] & a[2] & b[2]);
 
-
 	assign c[0] = c[1] | (
 		(~a[2] & ~b[2])
 		& (a[1]&b[1] | b[1]&b[0] | b[1]&a[0] | b[0]&a[1] | a[1]&a[0])
 	);
 	assign c[1] = a[2]&b[2] & ~(a[0]&b[0]&a[1]&b[1]) | ~(a[1] | b[1])
 		& (a[2]&~b[0] | b[2]&~a[0]);
-
 endmodule
 
-module QSD_internal_2nd_step_adder
+module QSD_internal_carry_sum_generator
+	(input [2:0] a, b,
+	 output [2:0] s,
+	 output [1:0] c);
+
+	wire a0_and_b0, a1_xor_b1, a2_or_b2, not_a0, not_a1, not_b0, not_b1,
+		xx1, xx2, xx3, xx4, xx5;
+
+	not #`DELAY
+		(not_a0, a[0]), (not_a1, a[1]),
+		(not_b0, b[0]), (not_b1, b[1]);
+
+	xor #`DELAY (s[0], a[0], b[0]);
+	xor #`DELAY (s[1], a[1], b[1], a0_and_b0);
+		and #`DELAY (a0_and_b0, a[0], b[0]);
+	or #`DELAY (s[2], xx1, xx2, xx3, xx4, xx5);
+		and #`DELAY (xx1, s[0], a1_xor_b1);
+			xor #`DELAY (a1_xor_b1, a[1], b[1]);
+		and #`DELAY (xx2, b[2], not_a1, not_b0);
+		and #`DELAY (xx3, a[2], not_b1, not_a0);
+		and #`DELAY (xx4, a[0], b[0], not_a1, not_b1, a2_or_b2);
+			or #`DELAY (a2_or_b2, a[2], b[2]);
+		and #`DELAY (xx5, a[0], b[0],  a[1],  b[1], a[2], b[2]);
+
+	wire yy1, yy2, a2_nor_b2, a1_and_b1, b1_and_b0, b1_and_a0, b0_and_a1, a1_and_a0;
+	or #`DELAY (c[0], c[1], yy1);
+		and #`DELAY (yy1, a2_nor_b2, yy2);
+			nor #`DELAY (a2_nor_b2, a[2], b[2]);
+		or #`DELAY (yy2, a1_and_b1, b1_and_b0, b1_and_a0, b0_and_a1, a1_and_a0);
+			and #`DELAY
+				(a1_and_b1, a[1], b[1]),
+				(b1_and_b0, b[1], b[0]),
+				(b1_and_a0, b[1], a[0]),
+				(b0_and_a1, b[0], a[1]),
+				(a1_and_a0, a[1], a[0]);
+
+	wire a2_and_b2, big_nand, a1_nor_b1, a2_and_not_b0_or_b2_and_not_a0,
+		a2_and_not_b0, b2_and_not_a0, left_c1, right_c1;
+	or #`DELAY (c[1], left_c1, right_c1);
+		and #`DELAY (left_c1, a2_and_b2, big_nand);
+			and #`DELAY (a2_and_b2, a[2], b[2]);
+			nand #`DELAY (big_nand, a[0], b[0], a[1], b[1]);
+		and #`DELAY (right_c1, a1_nor_b1, a2_and_not_b0_or_b2_and_not_a0);
+			nor #`DELAY (a1_nor_b1, a[1], b[1]);
+			or #`DELAY (a2_and_not_b0_or_b2_and_not_a0, a2_and_not_b0, b2_and_not_a0);
+				and #`DELAY (a2_and_not_b0, a[2], not_b0);
+				and #`DELAY (b2_and_not_a0, b[2], not_a0);
+endmodule
+
+module QSD_internal_2nd_step_adder_register_transfer
 	(input [1:0] a, // internal carry
 	 input [2:0] b, // internal sum
 	 output [2:0] s);
@@ -372,6 +419,24 @@ module QSD_internal_2nd_step_adder
 	assign s[0] = a[0] ^ b[0];
 	assign s[1] = a[1] ^ b[1] ^ (a[0] & b[0]);
 	assign s[2] = a[1] ^ b[2] ^ (a[1]&b[1] | ((a[1] ^ b[1])&a[0]&b[0]));
+endmodule
+
+module QSD_internal_2nd_step_adder
+	(input [1:0] a, // internal carry
+	 input [2:0] b, // internal sum
+	 output [2:0] s);
+
+	wire a0_and_b0, a1_xor_b1,
+		a1_and_b1, a1_xor_b1_and_a0_and_b0, a1_and_b1_or_a1_xor_b1_and_a0_and_b0;
+
+	xor #`DELAY (s[0], a[0], b[0]);
+	xor #`DELAY (s[1], a1_xor_b1, a0_and_b0);
+		xor #`DELAY (a1_xor_b1, a[1], b[1]);
+		and #`DELAY (a0_and_b0, a[0], b[0]);
+	xor #`DELAY (s[2], a[1], b[2], a1_and_b1_or_a1_xor_b1_and_a0_and_b0);
+		or #`DELAY (a1_and_b1_or_a1_xor_b1_and_a0_and_b0, a1_and_b1, a1_xor_b1_and_a0_and_b0);
+		and #`DELAY (a1_xor_b1_and_a0_and_b0, a1_xor_b1, a0_and_b0);
+		and #`DELAY (a1_and_b1, a[1], b[1]);
 endmodule
 
 // This takes as input 4 quaternary signed digits, so before we can use it in
