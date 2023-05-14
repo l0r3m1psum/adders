@@ -574,6 +574,7 @@ module serial_adder_block
 			endcase
 endmodule
 
+// NOTE: should we pull out the last carry of the serial_adder_block module?
 module serial_adder
 	#(parameter N=8)
 	(input clock, reset,
@@ -739,6 +740,18 @@ module adder_testbench;
 		`ASSERT(sum_cla_s === 192)
 		`ASSERT(sum_rnsa === 192)
 		`ASSERT(sum_sa === 192)
+		reset = 1;
+		A=254; B=253;
+		#10 reset = 0;
+		#20
+		/*
+		`ASSERT(sum_rca === 192)
+		`ASSERT(sum_csa === 192)
+		`ASSERT(sum_cla === 192)
+		`ASSERT(sum_cla_s === 192)
+		`ASSERT(sum_rnsa === 192)
+		`ASSERT(sum_sa === 192)
+		*/
 `else
 		for (a = 0; a < overflow_mask; a = a + 1) begin
 			for (b = 0; b < a; b = b + 1) begin
