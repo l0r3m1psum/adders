@@ -1,0 +1,60 @@
+{
+	"file_path": "./adder_testbench.vcd",
+	"clk_signal": "adder_testbench.clock", 
+	"signals": [
+		{
+			"name": "adder_testbench.A",
+			"color": "black",
+			"label": "A",   
+			"type": "hex" 
+		},
+		{
+			"name": "adder_testbench.B",
+			"color": "black",
+			"label": "B",   
+			"type": "hex" 
+		},
+		{
+			"name": "adder_testbench.sum_rca",
+			"color": "black",
+			"label": "rca",
+			"type": "hex"
+		},
+		{
+			"name": "adder_testbench.sum_csa",
+			"color": "black",
+			"label": "csa",
+			"type": "hex"
+		},
+		{
+			"name": "adder_testbench.sum_cla",
+			"color": "black",
+			"label": "cla",
+			"type": "hex"
+		},
+		{
+			"name": "adder_testbench.sum_cla_s",
+			"color": "black",
+			"label": "cla_s",
+			"type": "hex"
+		},
+		{
+			"name": "adder_testbench.sum_rnsa",
+			"color": "black",
+			"label": "rnsa",
+			"type": "hex"
+		},
+		{
+			"name": "adder_testbench.sum_qsda",
+			"color": "black",
+			"label": "qsda",
+			"type": "hex"
+		},
+		{
+			"name": "adder_testbench.sum_sa",
+			"color": "black",
+			"label": "sa",
+			"type": "hex"
+		}
+	]
+}

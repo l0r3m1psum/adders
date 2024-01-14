@@ -1,0 +1,212 @@
+% https://nathantypanski.com/blog/2014-10-29-tikz-timing.html
+% https://github.com/yne/vcd (the C one for the terminal)
+% https://github.com/martonbognar/vcdvis (the Python one for Tikz)
+% https://github.com/ernstblecha/vcd2tikztiming (another Python one)
+% https://github.com/wifasoi/WaveDromTikZ (another Python one but for WaveDrom files)
+% https://en.wikipedia.org/wiki/Value_change_dump
+% https://ctan.org/tex-archive/graphics/pgf/contrib/tikz-timing?lang=en
+\documentclass{article}
+
+\title{Implementing various adders in Verilog}
+\author{Diego Bellani - 1838645}
+\date{2023}
+
+\usepackage[hidelinks]{hyperref}
+\usepackage{tikz}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+We implemented some classic digital adders, and some others based on non
+standard number systems, in Verilog using delayed gates to have a somewhat
+realistic simulation.
+
+The aim of this project was mainly pedagogical, to see how effective the various
+strategies to implement addition are and also to see how reasonable they are to
+implement at this level of detail.
+
+All the adder have also been verified to be correct by and exhaustive search
+over all possible 8-bit number.
+\end{abstract}
+
+\section{Introduction}
+
+Addition is a fundamental mathematical operation and it is a cornerstone of all
+numerical algorithms. Having a fast implementation of this operation is crucial
+if we want to implement this kind of algorithms in a performant way. The main
+obstacle to a fast implementation of addition in hardware is the wait for carry
+propagation.
+
+In this project we implemented (and simulated) various digital addition
+strategies in the Verilog hardware description language, at the logic gate
+level, making sure that all gates had a uniform delay. While this is not a
+realistic assumption it is still a good pedagogical tool to show how the
+propagation of the signals happens in a digital circuit.
+
+We implemented the following classical adders: ripple-carry, carry-select,
+carry-lookahead and serial adder. We also implemented adders based on a residue
+number system and a redundant number system with signed digits, we are going to
+call this two adders the ``non standard'' ones.
+
+Even under our simplifying assumptions we had some surprising results. Like the
+fact that some supposedly faster circuits are not always the best performing,
+which is not obvious at all when studying them on paper.
+
+\section{Implementation}
+
+All classical adders were implemented as modules parametric in the number of
+bits that they add. The only exception was the carry-lookahead adder which
+(given the meta-programming capabilities of Verilog) we could not implement in
+this parametric fashion, so we settled for a fixed width implementation. To
+somewhat remediate to this we implemented another adder based on the recursive
+relation (without unrolling) of the carry-lookahead adder i.e.
+
+\begin{displaymath}
+C_i = G_{i-1} + P_{i-1} \cdot C_{i-1}\mathrm.
+\end{displaymath}
+
+We called this adder the carry-lookahead slow.
+
+One of the non standard adders is instead parametric in the numbers of
+``digits'' it adds and the other in parametric in the exponent used to generate
+the set of moduli. This did not allow us to perform a totally fair comparison
+between the two category of adders since they could add different ranges of
+numbers(in particular this category of adders ended up being able to add a
+slightly bigger range than the standard ones).
+
+All the adders are implemented at the logic gate level (or register-transfer
+level). The only exception is the serial adder because Verilog does not allow
+for edge triggering at the gate level and forces you to use behavioral
+construct instead. This is not as bad as it sounds since the serial adder always
+take fixed number of clock cycles add the numbers therefore if was always going
+to be the slowest.
+
+To make verification feasible we decided to limit ourselves to adder who could
+at least add 8-bit numbers (modulo 256).
+
+Before implementing the residue number system adder~\cite{rns} we gave a quick
+look around at the literature to see which base was the ``best'' to use. Given
+their popularity we initially thought to use $\{2^n+1, 2^n, 2^n-1\}$, because
+implementing a modulo $2^n$ adder is trivial and an adder modulo $2^n-1$ only
+requires loop around carry. After looking at~\cite{modular1, modular2,
+modular3} we convinced ourselves that implementing a performant $2^n+1$ modular
+adder was not an easy task. Therefore we looked around for another basis to use
+and found~\cite{residue}, in which the basis $\{2^n, 2^n-1, 2^{n-1}-1\}$ is
+described and it was perfect for our needs.
+
+The redundant number system we decided to use is the quaternary signed digit.
+This is because of the ease of representation of the range of its digits with
+3-bit 2's complement numbers.
+
+To implement the quaternary signed digit adder we started by
+reading~\cite{qsd_blog} that cited~\cite{qsd1} and~\cite{qsd2}. From~\cite{qsd1}
+we implemented the algorithm to do the number conversions, while
+from~\cite{qsd2} we took the minimized boolean expression needed for the two
+step addition process needed by redundant number systems.
+
+A final remark about the non standard adder is that they require their inputs to
+be converted from the classic binary format to their particular representation,
+and the opposite process must be done to their outputs. This is usually their
+bigger problem that stops them from being used in traditional digital computers.
+
+In order to level the playing field for non standard adder we decided to
+implement this conversions to-and-from without delays.
+
+\section{Results}
+
+We now present some example waveforms generated by the simulator to perform some
+additions on the numbers which are labeled as $A$ and $B$. In the figures we
+label the various adders with the abbreviated names found in
+table~\ref{tab:abbreviations}. We are going to use the abbreviated names for the
+adders in the rest of this report.
+
+\begin{table}
+\centering
+\begin{tabular}{|l|l|}
+\hline \textbf{Adder} & \textbf{Abbreviation} \\
+\hline ripple-carry & rca \\
+\hline carry-select & csa \\
+\hline carry-lookahead & cla \\
+\hline carry-lookahead slow & cla\_s \\
+\hline residue number system & rnsa \\
+\hline quaternary signed digit & qsda \\
+\hline serial & sa \\
+\hline
+\end{tabular}
+\caption{Abbreviations used in the figures for the adders.}
+\label{tab:abbreviations}
+\end{table}
+
+Let us start by looking at figure~\ref{fig:wf_8p3}. The first three adders show
+pretty much expected behavior, with the cla being faster than the other two.
+We can already see some surprising behaviors with both rnsa and qsda having the
+same speed as rca, which one would naively expect the former two be faster.
+
+Now let us take a look at figure~\ref{fig:wf_31p31} were we find pretty much the
+opposite situation. In this case the cla is the second slowest, and rnsa is
+among the fastest ones.
+
+Finally we will look at figure~\ref{fig:wf_15p9} where qsda is now one of the
+two fastest adder together with cla.
+
+This clearly shows that it is hard to see how an adder is going to perform a
+priori (except for sa which, of course, is the slowest in all the cases).
+
+\section{Conclusions}
+
+Our examples are a bit cherry picked and not representative of the general
+speed of the various adders, but some of the adders, in our limited experience,
+seemed to be better in most scenarios. In particular the qsda and rnsa often
+seemed to be slower than the classic cla.
+
+This fact goes against the common knowledge, that says that this carry free
+adders are supposed to be faster that the classical ones. But, as we have said
+before, this is just our limited experience.
+
+To be sure that qsda and rnsa are actually slower than cla in adding 8-bit
+numbers a deeper analysis could be done by analyzing the VCD file of the
+simulation directly do get the average and maximum propagation delay for all the
+adders.
+
+If this would actually be the case it would be interesting to see how big the
+numbers to add have to be before we start to see the advantage of this carry
+free adders.
+
+% TODO: spiegare perché ho usato quaternary come redundant number system.
+\newpage
+
+\bibliographystyle{plain}
+\bibliography{report}
+
+\newpage\pdfpageattr{/Rotate 90}
+
+\begin{figure}
+\centering
+\begin{tikzpicture}[scale=0.5, rotate=90, transform shape]
+\input{8p3wf}
+\end{tikzpicture}
+\caption{Waveforms of all the adders for $8+3$.}
+\label{fig:wf_8p3}
+\end{figure}
+
+\begin{figure}
+\centering
+\begin{tikzpicture}[scale=0.5, rotate=90, transform shape]
+\input{31p31wf}
+\end{tikzpicture}
+\caption{Waveforms of all the adders for $31+31$.}
+\label{fig:wf_31p31}
+\end{figure}
+
+\begin{figure}
+\centering
+\begin{tikzpicture}[scale=0.5, rotate=90, transform shape]
+\input{15p9wf}
+\end{tikzpicture}
+\caption{Waveforms of all the adders for $15+9$.}
+\label{fig:wf_15p9}
+\end{figure}
+
+\end{document}
